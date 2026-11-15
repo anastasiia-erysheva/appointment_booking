@@ -1,0 +1,21 @@
+# Виртуальное окружение Python
+.venv/
+venv/
+ENV/
+
+# Кэш и байт-код Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Секреты и переменные окружения
+.env
+.env.*
+!.env.example
+
+# Настройки IDE
+.idea/
+.vscode/
+
+# Локальные правила ИИ-напарника
+GEMINI.md
