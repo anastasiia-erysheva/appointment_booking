@@ -8,6 +8,10 @@ class Settings(BaseSettings):
     DB_PASS: str
     DB_NAME: str
 
+    ADMIN_USERNAME: str = "admin"
+    ADMIN_PASSWORD: str = "admin"
+    ADMIN_SECRET_KEY: str = "super-secret-admin-key"
+
     @property
     def database_url(self) -> str:
         return (
