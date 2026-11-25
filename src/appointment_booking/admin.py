@@ -9,7 +9,14 @@ from starlette.requests import Request
 from wtforms import ValidationError
 
 from appointment_booking.config import settings
-from appointment_booking.models import Doctor, DoctorService, Patient, Service, Slot
+from appointment_booking.models import (
+    Doctor,
+    DoctorService,
+    Patient,
+    Service,
+    Slot,
+    SlotStatus,
+)
 
 
 class AdminAuth(AuthenticationBackend):
@@ -132,7 +139,7 @@ class SlotAdmin(ModelView, model=Slot):
         Slot.room_number,
         Slot.start_time,
         Slot.end_time,
-        Slot.is_free,
+        Slot.status,
     ]
     column_searchable_list = [Slot.room_number]
     column_sortable_list = [
@@ -140,12 +147,24 @@ class SlotAdmin(ModelView, model=Slot):
         Slot.room_number,
         Slot.start_time,
         Slot.end_time,
-        Slot.is_free,
+        Slot.status,
     ]
-    form_excluded_columns = [Slot.is_free]
     name = "Slot"
     name_plural = "Slots"
     icon = "fa-solid fa-calendar-check"
+
+    @staticmethod
+    def _normalize_status(raw_status: Any) -> SlotStatus | None:
+        if isinstance(raw_status, SlotStatus):
+            return raw_status
+        if isinstance(raw_status, str):
+            if raw_status in SlotStatus.__members__:
+                return SlotStatus[raw_status]
+            try:
+                return SlotStatus(raw_status.lower())
+            except ValueError:
+                return None
+        return None
 
     async def on_model_change(
         self, data: dict[str, Any], model: Slot, is_created: bool, request: Request
@@ -155,16 +174,37 @@ class SlotAdmin(ModelView, model=Slot):
         if start_time and end_time and end_time <= start_time:
             raise ValidationError("End time must be after start time.")
 
-        has_patient = bool(data.get("patient"))
+        patient = data["patient"] if "patient" in data else model.patient
+        service = data["service"] if "service" in data else model.service
+        raw_status = data["status"] if "status" in data else model.status
+        status = self._normalize_status(raw_status) or SlotStatus.FREE
+
+        has_patient = bool(patient)
+        has_service = bool(service)
+
         if has_patient:
-            if not data.get("service"):
+            if not has_service:
                 raise ValidationError("Service is required when a patient is assigned.")
-            data["is_free"] = False
-            model.is_free = False
+            if status == SlotStatus.UNAVAILABLE:
+                raise ValidationError(
+                    "Cannot set status to UNAVAILABLE when a patient is assigned."
+                )
+            data["status"] = SlotStatus.BOOKED.name
+            model.status = SlotStatus.BOOKED
         else:
-            data["is_free"] = True
+            if status == SlotStatus.BOOKED:
+                prev_has_patient = not is_created and bool(
+                    model.patient_id or model.patient
+                )
+                if prev_has_patient:
+                    status = SlotStatus.FREE
+                else:
+                    raise ValidationError(
+                        "Cannot set status to BOOKED without an assigned patient."
+                    )
+            data["status"] = status.name
+            model.status = status
             data["service"] = None
-            model.is_free = True
             model.service_id = None
 
 
