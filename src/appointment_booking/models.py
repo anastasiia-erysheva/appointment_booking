@@ -2,7 +2,7 @@ from datetime import datetime
 import enum
 
 from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, String, UniqueConstraint
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from appointment_booking.database import Base
 
@@ -24,6 +24,11 @@ class Patient(Base):
     telephone: Mapped[str] = mapped_column(String, unique=True, nullable=False)
     telegram_id: Mapped[str | None] = mapped_column(String, unique=True, nullable=True)
 
+    slots: Mapped[list["Slot"]] = relationship(back_populates="patient")
+
+    def __str__(self) -> str:
+        return f"{self.name} ({self.telephone})"
+
 
 class Doctor(Base):
     __tablename__ = "doctors"
@@ -31,6 +36,14 @@ class Doctor(Base):
     doctor_id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String, nullable=False)
     specialty: Mapped[str] = mapped_column(String, nullable=False)
+
+    doctor_services: Mapped[list["DoctorService"]] = relationship(
+        back_populates="doctor"
+    )
+    slots: Mapped[list["Slot"]] = relationship(back_populates="doctor")
+
+    def __str__(self) -> str:
+        return f"{self.name} ({self.specialty})"
 
 
 class Service(Base):
@@ -40,6 +53,14 @@ class Service(Base):
     name: Mapped[str] = mapped_column(String, nullable=False)
     duration_minutes: Mapped[int] = mapped_column(nullable=False)
     price: Mapped[int] = mapped_column(nullable=False)
+
+    doctor_services: Mapped[list["DoctorService"]] = relationship(
+        back_populates="service"
+    )
+    slots: Mapped[list["Slot"]] = relationship(back_populates="service")
+
+    def __str__(self) -> str:
+        return f"{self.name} ({self.price})"
 
 
 class DoctorService(Base):
@@ -55,6 +76,12 @@ class DoctorService(Base):
     service_id: Mapped[int] = mapped_column(
         ForeignKey("services.service_id"), nullable=False
     )
+
+    doctor: Mapped["Doctor"] = relationship(back_populates="doctor_services")
+    service: Mapped["Service"] = relationship(back_populates="doctor_services")
+
+    def __str__(self) -> str:
+        return f"Doctor #{self.doctor_id} - Service #{self.service_id}"
 
 
 class Slot(Base):
@@ -77,3 +104,13 @@ class Slot(Base):
     start_time: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     end_time: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     is_free: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+    doctor: Mapped["Doctor"] = relationship(back_populates="slots")
+    service: Mapped["Service | None"] = relationship(back_populates="slots")
+    patient: Mapped["Patient | None"] = relationship(back_populates="slots")
+
+    def __str__(self) -> str:
+        if self.start_time:
+            return f"Slot #{self.slot_id} ({self.start_time:%Y-%m-%d %H:%M})"
+        return f"Slot #{self.slot_id}"
+
