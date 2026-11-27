@@ -1,6 +1,9 @@
+from datetime import datetime
 import re
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from appointment_booking.models import SlotStatus
 
 NAME_PATTERN = re.compile(r"^[А-Яа-яЁёA-Za-z\s-]+$")
 
@@ -26,3 +29,15 @@ class DoctorRead(BaseModel):
     doctor_id: int
     name: str
     specialty: str
+
+
+class SlotRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    slot_id: int
+    doctor_id: int
+    room_number: str
+    start_time: datetime
+    end_time: datetime
+    status: SlotStatus
+
