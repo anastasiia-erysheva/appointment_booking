@@ -1,7 +1,7 @@
 from datetime import datetime
 import enum
 
-from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, String, UniqueConstraint
+from sqlalchemy import DateTime, Enum, ForeignKey, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from appointment_booking.database import Base
@@ -10,6 +10,12 @@ from appointment_booking.database import Base
 class GenderType(str, enum.Enum):
     male = "male"
     female = "female"
+
+
+class SlotStatus(str, enum.Enum):
+    FREE = "free"
+    BOOKED = "booked"
+    UNAVAILABLE = "unavailable"
 
 
 class Patient(Base):
@@ -103,14 +109,20 @@ class Slot(Base):
     room_number: Mapped[str] = mapped_column(String, nullable=False)
     start_time: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     end_time: Mapped[datetime] = mapped_column(DateTime, nullable=False)
-    is_free: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    status: Mapped[SlotStatus] = mapped_column(
+        Enum(SlotStatus, name="slot_status_enum"),
+        default=SlotStatus.FREE,
+        server_default=SlotStatus.FREE.name,
+        nullable=False,
+    )
 
     doctor: Mapped["Doctor"] = relationship(back_populates="slots")
     service: Mapped["Service | None"] = relationship(back_populates="slots")
     patient: Mapped["Patient | None"] = relationship(back_populates="slots")
 
     def __str__(self) -> str:
+        status_label = self.status.value if self.status else SlotStatus.FREE.value
         if self.start_time:
-            return f"Slot #{self.slot_id} ({self.start_time:%Y-%m-%d %H:%M})"
-        return f"Slot #{self.slot_id}"
+            return f"Slot #{self.slot_id} ({self.start_time:%Y-%m-%d %H:%M}, {status_label})"
+        return f"Slot #{self.slot_id} ({status_label})"
 
